@@ -14,18 +14,20 @@ import com.csnet.browser.data.SettingsStore
 import com.csnet.browser.ui.theme.CsNetBrowserTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.isSystemInDarkTheme
 
 class MainActivity : ComponentActivity() {
     private val csNetSearch = CsNetSearch()
     private var isCustomSearch = false
-    private val settingsStore by lazy { SettingsStore(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val isDarkMode by settingsStore.isDarkMode.collectAsState(initial = false)
-
-            CsNetBrowserTheme(darkTheme = isDarkMode) {
+            val isDarkTheme = isSystemInDarkTheme()
+            CsNetBrowserTheme(
+                darkTheme = isDarkTheme,
+                dynamicColor = true  // Enable Material You dynamic colors
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

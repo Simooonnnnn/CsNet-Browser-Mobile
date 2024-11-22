@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.ui.unit.dp
 
 // Light Theme Colors
 private val LightColors = lightColorScheme(
@@ -88,8 +90,15 @@ fun CsNetBrowserTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // Make status bar color transparent and use surfaceColorAtElevation
+            window.statusBarColor = colorScheme.surfaceColorAtElevation(3.dp).toArgb()
+            // Adjust status bar icons based on theme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+            // Enable edge-to-edge
+            WindowCompat.setDecorFitsSystemWindows(window, false)
         }
     }
 
