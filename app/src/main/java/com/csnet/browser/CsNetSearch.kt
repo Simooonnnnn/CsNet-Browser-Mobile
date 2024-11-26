@@ -12,24 +12,45 @@ class CsNetSearch {
         "microsoft.com/en-us/legal", "privacy", "terms", "cookie"
     )
 
+    private val stopWords = setOf(
+        "the", "be", "to", "of", "and", "a", "in", "that", "have",
+        "i", "it", "for", "not", "on", "with", "he", "as", "you",
+        "do", "at", "this", "but", "his", "by", "from", "they",
+        "we", "say", "her", "she", "or", "an", "will", "my",
+        "one", "all", "would", "there", "their", "what", "about"
+    )
+
     suspend fun performSearch(query: String): String = withContext(Dispatchers.IO) {
         try {
-            // Get search results from DuckDuckGo
             val searchUrl = "https://duckduckgo.com/html/?q=${android.net.Uri.encode(query)}"
             val searchResults = Jsoup.connect(searchUrl)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .get()
 
-            // Extract relevant links and images
             val links = searchResults.select("div.result__body a.result__url")
                 .map { "https://${it.text().trim()}" }
                 .filter { !containsUnwantedDomain(it) }
                 .take(5)
 
-            // Extract images (fallback to placeholder if no images found)
-            val images = searchResults.select("div.result__body img")
-                .map { it.attr("src") }
-                .filter { it.startsWith("http") }
+            // Improve image extraction
+            val images = searchResults.select("div.result__body")
+                .flatMap { result ->
+                    // Try to get images from both result snippets and linked pages
+                    val directImages = result.select("img").map { it.attr("src") }
+                    val linkUrl = result.select("a.result__url").firstOrNull()?.text()?.let { "https://$it" }
+                    val linkedPageImages = linkUrl?.let {
+                        try {
+                            Jsoup.connect(it).get().select("img[src~=(?i)\\.(png|jpe?g)]")
+                                .map { img -> img.attr("abs:src") }
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    } ?: emptyList()
+
+                    directImages + linkedPageImages
+                }
+                .filter { it.startsWith("http") && it.matches(Regex(".+\\.(png|jpe?g)$", RegexOption.IGNORE_CASE)) }
+                .distinct()
                 .take(3)
                 .ifEmpty {
                     listOf(
@@ -39,60 +60,81 @@ class CsNetSearch {
                     )
                 }
 
-            // Analyze content from each link
-            val contentPieces = mutableListOf<Pair<String, String>>()
+            // Collect all content for unified analysis
+            val allContent = mutableListOf<String>()
+            val sources = mutableListOf<String>()
+
             for (link in links) {
                 try {
                     val doc = Jsoup.connect(link).get()
                     doc.select("script, style, nav, header, footer, iframe").remove()
 
-                    val content = doc.select("article p, main p, .content p")
+                    val paragraphs = doc.select("article p, main p, .content p")
                         .map { it.text().trim() }
                         .filter { it.length in 50..500 && isRelevantToQuery(it, query) }
-                        .firstOrNull()
+                        .take(2)  // Take fewer paragraphs per source for unified summary
 
-                    if (content != null) {
-                        contentPieces.add(URI(link).host to content)
+                    if (paragraphs.isNotEmpty()) {
+                        allContent.addAll(paragraphs)
+                        sources.add(URI(link).host)
                     }
                 } catch (e: Exception) {
                     continue
                 }
             }
 
-            generateSearchResultsHtml(query, images, contentPieces)
+            // Unified analysis
+            val unifiedKeywords = extractKeywords(allContent.joinToString(" "))
+            val unifiedBulletPoints = extractBulletPoints(allContent.joinToString(" "))
+
+            generateUnifiedResultsHtml(query, images, UnifiedAnalysis(
+                sources = sources,
+                content = allContent,
+                keywords = unifiedKeywords,
+                bulletPoints = unifiedBulletPoints
+            ))
         } catch (e: Exception) {
             generateErrorHtml("Search failed: ${e.message}")
         }
     }
 
-    private fun containsUnwantedDomain(url: String): Boolean {
-        return unwantedDomains.any { url.contains(it) }
+    private data class UnifiedAnalysis(
+        val sources: List<String>,
+        val content: List<String>,
+        val keywords: List<String>,
+        val bulletPoints: List<String>
+    )
+
+    private fun extractKeywords(text: String): List<String> {
+        return text.lowercase()
+            .split(Regex("[\\s.,;:!?()]+"))
+            .filter { it.length > 3 && !stopWords.contains(it) }
+            .groupBy { it }
+            .mapValues { it.value.size }
+            .entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+            .take(8)
     }
 
-    private fun isRelevantToQuery(text: String, query: String): Boolean {
-        val queryWords = query.lowercase().split(" ", ",", ".")
-            .filter { it.length > 2 }
-        return queryWords.any { text.lowercase().contains(it) }
+    private fun extractBulletPoints(text: String): List<String> {
+        return text.split(Regex("[.!?]+"))
+            .map { it.trim() }
+            .filter { it.length in 20..150 }
+            .distinctBy { it.lowercase() }  // Remove duplicate points
+            .sortedByDescending { it.length }  // Prioritize more detailed points
+            .take(5)
     }
 
-    private fun generateSearchResultsHtml(
+    private fun generateUnifiedResultsHtml(
         query: String,
         images: List<String>,
-        results: List<Pair<String, String>>
+        analysis: UnifiedAnalysis
     ): String {
         val imagesHtml = images.joinToString("\n") { imageUrl ->
             """
             <div class="image-card">
-                <img src="$imageUrl" alt="Search result" class="result-image">
-            </div>
-            """.trimIndent()
-        }
-
-        val contentHtml = results.joinToString("\n") { (source, content) ->
-            """
-            <div class="result-card">
-                <div class="source">From $source</div>
-                <div class="content">$content</div>
+                <img src="$imageUrl" alt="Search result" class="result-image" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Not+Found';">
             </div>
             """.trimIndent()
         }
@@ -121,8 +163,12 @@ class CsNetSearch {
                     gap: 8px;
                     overflow-x: auto;
                     margin-bottom: 24px;
-                    padding-bottom: 8px;
+                    padding: 8px 0;
                     -webkit-overflow-scrolling: touch;
+                    scrollbar-width: none;
+                }
+                .images-container::-webkit-scrollbar {
+                    display: none;
                 }
                 .image-card {
                     flex: 0 0 auto;
@@ -132,24 +178,64 @@ class CsNetSearch {
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 }
                 .result-image {
-                    width: 200px;
-                    height: 150px;
+                    width: 280px;
+                    height: 180px;
                     object-fit: cover;
                 }
                 .result-card {
                     background: white;
-                    padding: 16px;
+                    padding: 20px;
                     margin-bottom: 16px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    border-radius: 12px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 }
-                .source {
+                .sources {
                     color: #1a73e8;
                     font-size: 14px;
-                    margin-bottom: 8px;
+                    margin-bottom: 16px;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #e8eaed;
+                }
+                .keywords {
+                    margin: 16px 0;
+                }
+                .keyword-tags {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    margin-top: 8px;
+                }
+                .keyword {
+                    background: #f0f0f0;
+                    color: #202124;
+                    padding: 6px 12px;
+                    border-radius: 16px;
+                    font-size: 14px;
+                    border: 1px solid #e0e0e0;
+                }
+                .key-points {
+                    margin: 16px 0;
+                }
+                .key-points ul {
+                    margin: 8px 0;
+                    padding-left: 24px;
+                }
+                .key-points li {
+                    margin: 8px 0;
+                    color: #202124;
                 }
                 .content {
                     color: #202124;
+                }
+                h4 {
+                    color: #202124;
+                    font-size: 16px;
+                    margin: 12px 0;
+                    font-weight: 500;
+                }
+                p {
+                    margin: 12px 0;
+                    line-height: 1.7;
                 }
             </style>
         </head>
@@ -158,10 +244,41 @@ class CsNetSearch {
             <div class="images-container">
                 $imagesHtml
             </div>
-            $contentHtml
+            <div class="result-card">
+                <div class="sources">
+                    Sources: ${analysis.sources.joinToString(", ")}
+                </div>
+                <div class="keywords">
+                    <h4>Keywords:</h4>
+                    <div class="keyword-tags">
+                        ${analysis.keywords.joinToString("") { "<span class='keyword'>$it</span>" }}
+                    </div>
+                </div>
+                <div class="key-points">
+                    <h4>Key Points:</h4>
+                    <ul>
+                        ${analysis.bulletPoints.joinToString("\n") { "<li>$it</li>" }}
+                    </ul>
+                </div>
+                <div class="content">
+                    <h4>Detailed Information:</h4>
+                    ${analysis.content.joinToString("\n") { "<p>$it</p>" }}
+                </div>
+            </div>
         </body>
         </html>
         """.trimIndent()
+    }
+
+    // ... (keeping the existing helper functions)
+    private fun containsUnwantedDomain(url: String): Boolean {
+        return unwantedDomains.any { url.contains(it) }
+    }
+
+    private fun isRelevantToQuery(text: String, query: String): Boolean {
+        val queryWords = query.lowercase().split(" ", ",", ".")
+            .filter { it.length > 2 }
+        return queryWords.any { text.lowercase().contains(it) }
     }
 
     private fun generateErrorHtml(message: String): String {
