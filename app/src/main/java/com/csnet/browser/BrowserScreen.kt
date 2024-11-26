@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 
 @Composable
 fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
@@ -47,10 +50,12 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
     val scope = rememberCoroutineScope()
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val imeInsets = WindowInsets.ime.asPaddingValues()
+    var isWebViewTouched by remember { mutableStateOf(false) }
 
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = !isWebViewTouched, // Disable drawer gestures when WebView is being touched
         drawerContent = {
             SideMenu(
                 onDismiss = { scope.launch { drawerState.close() } },
@@ -95,6 +100,18 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                                     }
                                 }
                             }
+                            setOnTouchListener { _, event ->
+                                when (event.action) {
+                                    MotionEvent.ACTION_DOWN -> {
+                                        isWebViewTouched = true
+                                    }
+                                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                        isWebViewTouched = false
+                                    }
+                                }
+                                false
+                            }
+
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true
@@ -108,20 +125,18 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = systemBarsPadding.calculateBottomPadding())
-
                 )
-// Find this part in your BrowserScreen.kt file
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = systemBarsPadding.calculateBottomPadding() + 80.dp)
-                        .offset(x = 40.dp),
+                        .offset(x = 30.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CsNetLogo(
-                        modifier = Modifier.size(120.dp),
-                        size = 120f
+                        modifier = Modifier.size(200.dp),  // Increased from 120.dp to 200.dp
+                        size = 400f  // Increased from 120f to 200f
                     )
                 }
             }
@@ -139,7 +154,7 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = 40.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -153,8 +168,8 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
 
                             Surface(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 16.dp),
+                                    .weight(0.5f)  // Changed from 1f to 0.5f to make it take up less space
+                                    .padding(horizontal = 60.dp),  // Reduced horizontal padding
                                 shape = RoundedCornerShape(50),
                                 color = MaterialTheme.colorScheme.surfaceVariant,
                                 onClick = { isSearchMode = true }
@@ -199,13 +214,17 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
                     onSearch = { query, isGoogleSearch ->
-                        if (isGoogleSearch) {
-                            onLoadUrl(webView, "https://www.google.com/search?q=$query")
-                        } else {
-                            onLoadUrl(webView, "csnet:$query")
+                        isWebViewVisible = true  // Make WebView visible before loading URL
+                        isSearchMode = false     // Hide search screen
+                        // Slight delay to ensure WebView is ready
+                        scope.launch {
+                            kotlinx.coroutines.delay(100)  // Short delay
+                            if (isGoogleSearch) {
+                                onLoadUrl(webView, "https://www.google.com/search?q=$query")
+                            } else {
+                                onLoadUrl(webView, "csnet:$query")
+                            }
                         }
-                        isSearchMode = false
-                        isWebViewVisible = true
                     }
                 )
             }
