@@ -2,8 +2,6 @@ package com.csnet.browser
 
 import android.graphics.Bitmap
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.*
@@ -11,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,18 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import com.csnet.browser.*
 import kotlinx.coroutines.launch
-
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.ime
 
 @Composable
 fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
-    // All state variables
+    // State variables remain the same
     var url by rememberSaveable { mutableStateOf("") }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -47,148 +42,151 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
     var isTabsOverviewVisible by remember { mutableStateOf(false) }
     var activeTabId by rememberSaveable { mutableStateOf("1") }
 
-    // Drawer state variables
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var showClearDataDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
+    val imeInsets = WindowInsets.ime.asPaddingValues()
+
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             SideMenu(
-                onDismiss = {
-                    scope.launch {
-                        drawerState.close()
-                    }
-                },
+                onDismiss = { scope.launch { drawerState.close() } },
                 onClearData = {
                     showClearDataDialog = true
-                    scope.launch {
-                        drawerState.close()
-                    }
+                    scope.launch { drawerState.close() }
                 },
-                onSettings = {
-                    scope.launch {
-                        drawerState.close()
-                    }
-                }
+                onSettings = { scope.launch { drawerState.close() } }
             )
         }
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (isWebViewVisible) {
-                    AndroidView(
-                        factory = { context ->
-                            WebView(context).apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                webViewClient = object : WebViewClient() {
-                                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                        isLoading = true
-                                    }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = systemBarsPadding.calculateTopPadding())
+        ) {
+            // Main content
+            if (isWebViewVisible) {
+                AndroidView(
+                    factory = { context ->
+                        WebView(context).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                    isLoading = true
+                                }
 
-                                    override fun onPageFinished(view: WebView?, url: String?) {
-                                        isLoading = false
-                                        // Update tab info when page loads
-                                        url?.let { currentUrl ->
-                                            tabs = tabs.map { tab ->
-                                                if (tab.id == activeTabId) {
-                                                    tab.copy(
-                                                        url = currentUrl,
-                                                        title = view?.title ?: currentUrl
-                                                    )
-                                                } else tab
-                                            }
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    isLoading = false
+                                    url?.let { currentUrl ->
+                                        tabs = tabs.map { tab ->
+                                            if (tab.id == activeTabId) {
+                                                tab.copy(
+                                                    url = currentUrl,
+                                                    title = view?.title ?: currentUrl
+                                                )
+                                            } else tab
                                         }
                                     }
                                 }
-                                settings.apply {
-                                    javaScriptEnabled = true
-                                    domStorageEnabled = true
-                                    setSupportZoom(true)
-                                    builtInZoomControls = true
-                                    displayZoomControls = false
-                                }
-                                webView = this
                             }
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "CsNet Browser",
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                    }
-                }
-
-                // Bottom navigation bar
-                Surface(
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                setSupportZoom(true)
+                                builtInZoomControls = true
+                                displayZoomControls = false
+                            }
+                            webView = this
+                        }
+                    },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding(),
+                        .fillMaxSize()
+                        .padding(bottom = systemBarsPadding.calculateBottomPadding())
+
+                )
+// Find this part in your BrowserScreen.kt file
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = systemBarsPadding.calculateBottomPadding() + 80.dp)
+                        .offset(x = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CsNetLogo(
+                        modifier = Modifier.size(120.dp),
+                        size = 120f
+                    )
+                }
+            }
+
+// Bottom navigation
+            Box(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
                     tonalElevation = 3.dp,
                     color = MaterialTheme.colorScheme.surface
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { scope.launch { drawerState.open() } }
-                        ) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Surface(
+                    Column {
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 95.dp),
-                            shape = RoundedCornerShape(50),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            onClick = { isSearchMode = true }
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                 Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    Icons.Default.Menu,
+                                    contentDescription = "Menu",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 16.dp),
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = { isSearchMode = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Search,
+                                        contentDescription = "Search",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            IconButton(onClick = { isTabsOverviewVisible = true }) {
+                                Icon(
+                                    Icons.Outlined.Layers,
+                                    contentDescription = "Tabs",
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
-
-                        IconButton(
-                            onClick = { isTabsOverviewVisible = true }
-                        ) {
-                            Icon(
-                                Icons.Default.ViewList,
-                                contentDescription = "Tabs",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )                        }
+                        // Add spacer to account for navigation bar height
+                        Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars))
                     }
                 }
             }
 
+            // Rest of the overlays remain the same
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier
@@ -200,7 +198,7 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
             if (isSearchMode) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
-                    onSearch = { query: String, isGoogleSearch: Boolean ->  // explicitly specify types
+                    onSearch = { query, isGoogleSearch ->
                         if (isGoogleSearch) {
                             onLoadUrl(webView, "https://www.google.com/search?q=$query")
                         } else {
@@ -231,29 +229,29 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                     onDismiss = { isTabsOverviewVisible = false }
                 )
             }
-        }
 
-        if (showClearDataDialog) {
-            AlertDialog(
-                onDismissRequest = { showClearDataDialog = false },
-                title = { Text("Clear Browsing Data") },
-                text = { Text("Are you sure you want to clear all browsing data?") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showClearDataDialog = false
-                            // Implement clear data functionality
+            if (showClearDataDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearDataDialog = false },
+                    title = { Text("Clear Browsing Data") },
+                    text = { Text("Are you sure you want to clear all browsing data?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showClearDataDialog = false
+                                // Implement clear data functionality
+                            }
+                        ) {
+                            Text("Clear")
                         }
-                    ) {
-                        Text("Clear")
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearDataDialog = false }) {
+                            Text("Cancel")
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showClearDataDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }
