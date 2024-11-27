@@ -7,14 +7,12 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.csnet.browser.data.SettingsStore
-import com.csnet.browser.ui.theme.CsNetBrowserTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.csnet.browser.ui.theme.CsNetBrowserTheme
 
 class MainActivity : ComponentActivity() {
     private val csNetSearch = CsNetSearch()
@@ -22,19 +20,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             val isDarkTheme = isSystemInDarkTheme()
+
             CsNetBrowserTheme(
                 darkTheme = isDarkTheme,
-                dynamicColor = true  // Enable Material You dynamic colors
+                dynamicColor = true
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    BrowserScreen(onLoadUrl = { webView, url ->
-                        loadUrl(webView, url)
-                    })
+                    BrowserScreen(
+                        onLoadUrl = { webView: WebView?, url: String ->
+                            loadUrl(webView, url)
+                        }
+                    )
                 }
             }
         }

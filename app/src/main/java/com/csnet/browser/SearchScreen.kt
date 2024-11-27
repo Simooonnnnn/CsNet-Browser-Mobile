@@ -39,7 +39,8 @@ fun SearchScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {            // Search bar
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Search bar
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 tonalElevation = 3.dp,

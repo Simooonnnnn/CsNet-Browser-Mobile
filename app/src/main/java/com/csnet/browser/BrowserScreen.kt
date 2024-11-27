@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import java.util.UUID
 
 @Composable
 fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
@@ -36,14 +37,16 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
     var isWebViewVisible by remember { mutableStateOf(false) }
     var tabs by rememberSaveable {
         mutableStateOf(listOf(TabInfo(
-            id = "1",
+            id = UUID.randomUUID().toString(),
             title = "New Tab",
             url = "",
             isActive = true
         )))
     }
     var isTabsOverviewVisible by remember { mutableStateOf(false) }
-    var activeTabId by rememberSaveable { mutableStateOf("1") }
+    var activeTabId by rememberSaveable {
+        mutableStateOf(tabs.first().id)
+    }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var showClearDataDialog by remember { mutableStateOf(false) }
@@ -214,11 +217,29 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
                     onSearch = { query, isGoogleSearch ->
-                        isWebViewVisible = true  // Make WebView visible before loading URL
-                        isSearchMode = false     // Hide search screen
-                        // Slight delay to ensure WebView is ready
+                        // Create a new tab
+                        val newTabId = UUID.randomUUID().toString()
+                        val newTab = TabInfo(
+                            id = newTabId,
+                            title = query,
+                            url = if (isGoogleSearch) {
+                                "https://www.google.com/search?q=$query"
+                            } else {
+                                "csnet:$query"
+                            },
+                            isActive = true
+                        )
+
+                        // Update tabs list: set all tabs to inactive and add the new active tab
+                        tabs = tabs.map { it.copy(isActive = false) } + newTab
+                        activeTabId = newTabId
+
+                        isWebViewVisible = true
+                        isSearchMode = false
+
+                        // Load the URL in the WebView
                         scope.launch {
-                            kotlinx.coroutines.delay(100)  // Short delay
+                            kotlinx.coroutines.delay(100)
                             if (isGoogleSearch) {
                                 onLoadUrl(webView, "https://www.google.com/search?q=$query")
                             } else {
@@ -234,15 +255,30 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                     tabs = tabs,
                     onTabClose = { tabId ->
                         if (tabs.size > 1) {
-                            tabs = tabs.filter { it.id != tabId }
+                            // Remove the selected tab
+                            val updatedTabs = tabs.filter { it.id != tabId }
+
+                            // If we're closing the active tab, activate the last tab in the list
                             if (tabId == activeTabId) {
-                                activeTabId = tabs.first().id
+                                val newActiveTab = updatedTabs.last()
+                                activeTabId = newActiveTab.id
+                                // Update tabs with new active state
+                                tabs = updatedTabs.map { it.copy(isActive = it.id == newActiveTab.id) }
+                            } else {
+                                tabs = updatedTabs
                             }
                         }
                     },
                     onTabSelect = { tabId ->
                         activeTabId = tabId
                         tabs = tabs.map { it.copy(isActive = it.id == tabId) }
+                        // Load the selected tab's URL
+                        val selectedTab = tabs.find { it.id == tabId }
+                        selectedTab?.let { tab ->
+                            if (tab.url.isNotEmpty()) {
+                                onLoadUrl(webView, tab.url)
+                            }
+                        }
                         isTabsOverviewVisible = false
                     },
                     onDismiss = { isTabsOverviewVisible = false }
