@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.csnet.browser.TabInfo
+
+// Data class for tab information
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,13 +29,14 @@ fun TabsOverviewScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header
             TopAppBar(
                 title = { Text("CsNet Mobile Tabs") },
-                modifier = Modifier.fillMaxWidth()
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
 
-            // Tabs list
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -60,6 +64,16 @@ private fun TabCard(
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (tab.isActive) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (tab.isActive) 4.dp else 1.dp
+        )
     ) {
         Row(
             modifier = Modifier
@@ -67,15 +81,17 @@ private fun TabCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon (Google or custom favicon)
             Icon(
                 imageVector = Icons.Default.Language,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (tab.isActive) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
 
-            // Title and URL
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -85,20 +101,28 @@ private fun TabCard(
                     text = tab.title,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (tab.isActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                 )
                 if (tab.url.isNotEmpty()) {
                     Text(
                         text = tab.url,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (tab.isActive) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            // Close button
             IconButton(
                 onClick = onClose,
                 modifier = Modifier.size(24.dp)
@@ -106,17 +130,13 @@ private fun TabCard(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close Tab",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (tab.isActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
         }
     }
 }
-
-data class TabInfo(
-    val id: String,
-    val title: String,
-    val url: String,
-    val isActive: Boolean = false,
-    val favicon: String? = null
-)

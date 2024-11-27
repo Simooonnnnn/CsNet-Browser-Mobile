@@ -26,6 +26,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import java.util.UUID
+import com.csnet.browser.TabInfo
 
 @Composable
 fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
@@ -213,37 +214,54 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                 )
             }
 
+// In BrowserScreen.kt, update the SearchScreen section:
             if (isSearchMode) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
                     onSearch = { query, isGoogleSearch ->
-                        // Create a new tab
                         val newTabId = UUID.randomUUID().toString()
-                        val newTab = TabInfo(
-                            id = newTabId,
-                            title = query,
-                            url = if (isGoogleSearch) {
-                                "https://www.google.com/search?q=$query"
-                            } else {
-                                "csnet:$query"
-                            },
-                            isActive = true
-                        )
 
-                        // Update tabs list: set all tabs to inactive and add the new active tab
-                        tabs = tabs.map { it.copy(isActive = false) } + newTab
-                        activeTabId = newTabId
+                        if (isGoogleSearch) {
+                            // Handle Google search
+                            val newTab = TabInfo(
+                                id = newTabId,
+                                title = query,
+                                url = "https://www.google.com/search?q=$query",
+                                isActive = true
+                            )
+                            tabs = tabs.map { it.copy(isActive = false) } + newTab
+                            activeTabId = newTabId
 
-                        isWebViewVisible = true
-                        isSearchMode = false
+                            isWebViewVisible = true
+                            isSearchMode = false
 
-                        // Load the URL in the WebView
-                        scope.launch {
-                            kotlinx.coroutines.delay(100)
-                            if (isGoogleSearch) {
+                            scope.launch {
+                                kotlinx.coroutines.delay(100)
                                 onLoadUrl(webView, "https://www.google.com/search?q=$query")
-                            } else {
-                                onLoadUrl(webView, "csnet:$query")
+                            }
+                        } else {
+                            // Handle CsNet search
+                            scope.launch {
+                                val csNetUrl = "csnet:$query"
+                                onLoadUrl(webView, csNetUrl)
+
+                                // Wait for the content to load
+                                kotlinx.coroutines.delay(500)
+
+                                webView?.evaluateJavascript("document.documentElement.outerHTML") { html ->
+                                    val newTab = TabInfo(
+                                        id = newTabId,
+                                        title = "CsNet: $query",
+                                        url = csNetUrl,
+                                        isActive = true,
+                                        csNetContent = html
+                                    )
+                                    tabs = tabs.map { it.copy(isActive = false) } + newTab
+                                    activeTabId = newTabId
+                                }
+
+                                isWebViewVisible = true
+                                isSearchMode = false
                             }
                         }
                     }
@@ -255,14 +273,10 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                     tabs = tabs,
                     onTabClose = { tabId ->
                         if (tabs.size > 1) {
-                            // Remove the selected tab
                             val updatedTabs = tabs.filter { it.id != tabId }
-
-                            // If we're closing the active tab, activate the last tab in the list
                             if (tabId == activeTabId) {
                                 val newActiveTab = updatedTabs.last()
                                 activeTabId = newActiveTab.id
-                                // Update tabs with new active state
                                 tabs = updatedTabs.map { it.copy(isActive = it.id == newActiveTab.id) }
                             } else {
                                 tabs = updatedTabs
@@ -272,39 +286,31 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                     onTabSelect = { tabId ->
                         activeTabId = tabId
                         tabs = tabs.map { it.copy(isActive = it.id == tabId) }
-                        // Load the selected tab's URL
                         val selectedTab = tabs.find { it.id == tabId }
                         selectedTab?.let { tab ->
-                            if (tab.url.isNotEmpty()) {
-                                onLoadUrl(webView, tab.url)
+                            when {
+                                tab.url.startsWith("csnet:") && tab.csNetContent != null -> {
+                                    // Restore CsNet search content
+                                    webView?.loadDataWithBaseURL(
+                                        null,
+                                        tab.csNetContent,
+                                        "text/html",
+                                        "UTF-8",
+                                        tab.url
+                                    )
+                                    Unit
+                                }
+                                tab.url.isNotEmpty() -> {
+                                    // Load regular URL
+                                    onLoadUrl(webView, tab.url)
+                                    Unit
+                                }
+                                else -> Unit
                             }
                         }
                         isTabsOverviewVisible = false
                     },
                     onDismiss = { isTabsOverviewVisible = false }
-                )
-            }
-
-            if (showClearDataDialog) {
-                AlertDialog(
-                    onDismissRequest = { showClearDataDialog = false },
-                    title = { Text("Clear Browsing Data") },
-                    text = { Text("Are you sure you want to clear all browsing data?") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                showClearDataDialog = false
-                                // Implement clear data functionality
-                            }
-                        ) {
-                            Text("Clear")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showClearDataDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
                 )
             }
         }

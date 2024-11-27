@@ -50,7 +50,13 @@ class MainActivity : ComponentActivity() {
                 isCustomSearch = true
                 val query = input.substringAfter(":").substringAfter("/").trim()
                 val searchResults = csNetSearch.performSearch(query)
-                webView?.loadDataWithBaseURL(null, searchResults, "text/html", "UTF-8", null)
+                webView?.loadDataWithBaseURL(
+                    input, // Use the csnet: URL as the base URL
+                    searchResults,
+                    "text/html",
+                    "UTF-8",
+                    null
+                )
             } else {
                 isCustomSearch = false
                 val url = when {

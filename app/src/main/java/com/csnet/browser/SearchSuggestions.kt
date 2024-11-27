@@ -4,34 +4,66 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.ListItem
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+import org.json.JSONArray
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+
+class SearchSuggestionsRepository {
+    suspend fun fetchSuggestions(query: String): List<String> {
+        if (query.isBlank()) return emptyList()
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                val url = URL("https://suggestqueries.google.com/complete/search?client=firefox&q=$encodedQuery")
+                val connection = url.openConnection() as HttpURLConnection
+
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = reader.readText()
+                reader.close()
+
+                // Parse JSON response
+                val jsonArray = JSONArray(response)
+                val suggestionsArray = jsonArray.getJSONArray(1)
+
+                List(suggestionsArray.length()) { i ->
+                    suggestionsArray.getString(i)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+    }
+}
 
 @Composable
 fun SearchSuggestions(
     query: String,
     onSuggestionClick: (String) -> Unit
 ) {
-    val suggestions = remember(query) {
-        if (query.isBlank()) {
-            emptyList()
+    var suggestions by remember { mutableStateOf(emptyList<String>()) }
+    val repository = remember { SearchSuggestionsRepository() }
+
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) {
+            suggestions = repository.fetchSuggestions(query)
         } else {
-            listOf(
-                query,
-                "$query Technische Daten",
-                "$query Laptops kaufen",
-                "$query Reviews"
-            )
+            suggestions = emptyList()
         }
     }
 

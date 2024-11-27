@@ -65,9 +65,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.webkit:webkit:1.9.0")
     implementation("org.jsoup:jsoup:1.17.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
-
+    implementation("org.json:json:20231013")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
