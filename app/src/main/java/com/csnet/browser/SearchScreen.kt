@@ -1,4 +1,6 @@
 package com.csnet.browser
+
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,7 +20,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.csnet.browser.SearchSuggestions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,124 +40,154 @@ fun SearchScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Search bar
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Enhanced search bar with Material 3 styling
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 3.dp,
-                color = MaterialTheme.colorScheme.surface
+                tonalElevation = 2.dp,
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 4.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
+                Column {
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
-                            .focusRequester(focusRequester),
-                        placeholder = { Text("Suchen oder URL eingeben") },
-                        singleLine = true,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                onSearch(searchQuery, selectedTab == 0)
-                                focusManager.clearFocus()
-                            }
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
                         )
-                    )
 
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp)
+                                .focusRequester(focusRequester),
+                            placeholder = {
+                                Text(
+                                    "Suchen oder URL eingeben",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            },
+                            singleLine = true,
+                            colors = TextFieldDefaults.textFieldColors(
+                                containerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                cursorColor = MaterialTheme.colorScheme.primary
+                            ),
+                            textStyle = MaterialTheme.typography.bodyLarge,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    onSearch(searchQuery, selectedTab == 0)
+                                    focusManager.clearFocus()
+                                }
                             )
+                        )
+
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-                }
-            }
 
-            // Search type tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 4.dp),
-                    shape = RoundedCornerShape(50),
-                    color = if (selectedTab == 0)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant,
-                    onClick = { selectedTab = 0 }
-                ) {
-                    Text(
-                        text = "Google Suche",
+                    // Enhanced tab selection with Material 3 styling
+                    Row(
                         modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        color = if (selectedTab == 0)
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        TabButton(
+                            text = "Google Suche",
+                            isSelected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp)
+                        )
 
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp),
-                    shape = RoundedCornerShape(50),
-                    color = if (selectedTab == 1)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant,
-                    onClick = { selectedTab = 1 }
-                ) {
-                    Text(
-                        text = "CsNet Kurzfassung",
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        color = if (selectedTab == 1)
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Search suggestions
-            if (searchQuery.isNotEmpty()) {
-                SearchSuggestions(
-                    query = searchQuery,
-                    onSuggestionClick = { suggestion: String ->  // explicitly specify type
-                        searchQuery = suggestion
-                        onSearch(suggestion, selectedTab == 0)
+                        TabButton(
+                            text = "CsNet Kurzfassung",
+                            isSelected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 4.dp)
+                        )
                     }
-                )
+                }
             }
+
+            // Search suggestions with enhanced styling
+            if (searchQuery.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp
+                ) {
+                    SearchSuggestions(
+                        query = searchQuery,
+                        onSuggestionClick = { suggestion ->
+                            searchQuery = suggestion
+                            onSearch(suggestion, selectedTab == 0)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabButton(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(24.dp),
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        tonalElevation = if (isSelected) 2.dp else 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

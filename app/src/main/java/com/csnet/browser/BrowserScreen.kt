@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,9 +30,11 @@ import java.util.UUID
 import com.csnet.browser.TabInfo
 
 @Composable
-fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
-    // State variables remain the same
+fun BrowserScreen(
+    onLoadUrl: (WebView?, String, ColorScheme) -> Unit  // Add ColorScheme parameter
+) {    // State variables remain unchanged
     var url by rememberSaveable { mutableStateOf("") }
+    val colorScheme = MaterialTheme.colorScheme
     var webView by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var isSearchMode by remember { mutableStateOf(false) }
@@ -47,9 +50,7 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
         )))
     }
     var isTabsOverviewVisible by remember { mutableStateOf(false) }
-    var activeTabId by rememberSaveable {
-        mutableStateOf(tabs.first().id)
-    }
+    var activeTabId by rememberSaveable { mutableStateOf(tabs.first().id) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var showClearDataDialog by remember { mutableStateOf(false) }
@@ -58,10 +59,9 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
     val imeInsets = WindowInsets.ime.asPaddingValues()
     var isWebViewTouched by remember { mutableStateOf(false) }
 
-
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = !isWebViewTouched, // Disable drawer gestures when WebView is being touched
+        gesturesEnabled = !isWebViewTouched,
         drawerContent = {
             SideMenu(
                 onDismiss = { scope.launch { drawerState.close() } },
@@ -78,13 +78,14 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                 .fillMaxSize()
                 .padding(top = systemBarsPadding.calculateTopPadding())
         ) {
-            // Main content
+            // Main content with enhanced Material 3 styling
             if (isWebViewVisible) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (showWebView) {
                         AndroidView(
                             factory = { context ->
                                 WebView(context).apply {
+                                    // WebView configuration remains unchanged
                                     layoutParams = ViewGroup.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -96,7 +97,7 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
 
                                         override fun onPageFinished(view: WebView?, url: String?) {
                                             isLoading = false
-                                            isLoadingCsNet = false  // Add this line to ensure CsNet loading stops
+                                            isLoadingCsNet = false
 
                                             url?.let { currentUrl ->
                                                 tabs = tabs.map { tab ->
@@ -113,12 +114,8 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
 
                                     setOnTouchListener { _, event ->
                                         when (event.action) {
-                                            MotionEvent.ACTION_DOWN -> {
-                                                isWebViewTouched = true
-                                            }
-                                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                                isWebViewTouched = false
-                                            }
+                                            MotionEvent.ACTION_DOWN -> isWebViewTouched = true
+                                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> isWebViewTouched = false
                                         }
                                         false
                                     }
@@ -139,24 +136,45 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                         )
                     }
 
+                    // Enhanced CsNet loading screen with Material 3 design
                     if (isLoadingCsNet) {
-                        Box(
+                        Surface(
                             modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator()
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("Loading CsNet results...")
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(24.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(56.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 6.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Text(
+                                        text = "Loading CsNet results...",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Summarizing search results",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
-
             } else {
+                // Enhanced logo display with Material You colors
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -164,98 +182,120 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                         .offset(x = 30.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CsNetLogo(
-                        modifier = Modifier.size(200.dp),  // Increased from 120.dp to 200.dp
-                        size = 400f  // Increased from 120f to 200f
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CsNetLogo(
+                            modifier = Modifier.size(200.dp),
+                            size = 400f
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Search or enter URL",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
-// Bottom navigation
+            // Enhanced bottom navigation with Material 3 styling
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 3.dp,
-                    color = MaterialTheme.colorScheme.surface
+                    tonalElevation = 6.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp
                 ) {
                     Column {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 40.dp, vertical = 12.dp),
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            IconButton(
+                                onClick = { scope.launch { drawerState.open() } },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
                                 Icon(
                                     Icons.Default.Menu,
                                     contentDescription = "Menu",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
                             Surface(
                                 modifier = Modifier
-                                    .weight(0.5f)  // Changed from 1f to 0.5f to make it take up less space
-                                    .padding(horizontal = 60.dp),  // Reduced horizontal padding
-                                shape = RoundedCornerShape(50),
+                                    .weight(0.6f)
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(24.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 2.dp,
                                 onClick = { isSearchMode = true }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         Icons.Default.Search,
                                         contentDescription = "Search",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
 
-                            IconButton(onClick = { isTabsOverviewVisible = true }) {
+                            IconButton(
+                                onClick = { isTabsOverviewVisible = true },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
                                 Icon(
                                     Icons.Outlined.Layers,
                                     contentDescription = "Tabs",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        // Add spacer to account for navigation bar height
                         Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars))
                     }
                 }
             }
 
-            // Rest of the overlays remain the same
+            // Enhanced loading indicator
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.TopCenter),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
 
-// In BrowserScreen.kt, update the SearchScreen section:
+            // Search screen and tabs overview remain functionally the same but inherit Material 3 styling
             if (isSearchMode) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
                     onSearch = { query, isGoogleSearch ->
                         if (isGoogleSearch) {
-                            // Handle Google search
                             scope.launch {
-                                // Initialize first
                                 isWebViewVisible = true
                                 showWebView = true
-
-                                // Wait for WebView to be ready
                                 kotlinx.coroutines.delay(100)
 
-                                // Create new tab
                                 val newTabId = UUID.randomUUID().toString()
                                 val newTab = TabInfo(
                                     id = newTabId,
@@ -265,25 +305,16 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                                 )
                                 tabs = tabs.map { it.copy(isActive = false) } + newTab
                                 activeTabId = newTabId
-
-                                // Load the URL - no loading screen for Google search
-                                onLoadUrl(webView, "https://www.google.com/search?q=$query")
-
+                                onLoadUrl(webView, "https://www.google.com/search?q=$query", colorScheme)  // For Google searches
                                 isSearchMode = false
                             }
                         } else {
-                            // Handle CsNet search
                             scope.launch {
                                 val csNetUrl = "csnet:$query"
-
-                                // Initialize first
                                 isWebViewVisible = true
                                 showWebView = true
-
-                                // Wait for WebView to be ready
                                 kotlinx.coroutines.delay(100)
 
-                                // Create new tab
                                 val newTabId = UUID.randomUUID().toString()
                                 val newTab = TabInfo(
                                     id = newTabId,
@@ -291,17 +322,10 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                                     url = csNetUrl,
                                     isActive = true
                                 )
-
-                                // Update tabs
                                 tabs = tabs.map { it.copy(isActive = false) } + newTab
                                 activeTabId = newTabId
-
-                                // Show loading indicator only for CsNet search
                                 isLoadingCsNet = true
-
-                                // Load the URL
-                                onLoadUrl(webView, csNetUrl)
-
+                                onLoadUrl(webView, csNetUrl, colorScheme)  // For CsNet searches
                                 isSearchMode = false
                             }
                         }
@@ -331,7 +355,6 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                         selectedTab?.let { tab ->
                             when {
                                 tab.url.startsWith("csnet:") && tab.csNetContent != null -> {
-                                    // Restore CsNet search content
                                     webView?.loadDataWithBaseURL(
                                         null,
                                         tab.csNetContent,
@@ -339,14 +362,13 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                                         "UTF-8",
                                         tab.url
                                     )
-                                    Unit
                                 }
                                 tab.url.isNotEmpty() -> {
-                                    // Load regular URL
-                                    onLoadUrl(webView, tab.url)
-                                    Unit
+                                    onLoadUrl(webView, tab.url, colorScheme)
                                 }
-                                else -> Unit
+                                else -> {
+                                    // Handle empty URL case - do nothing as it's a new tab
+                                }
                             }
                         }
                         isTabsOverviewVisible = false
