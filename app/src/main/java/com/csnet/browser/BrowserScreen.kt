@@ -36,6 +36,8 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
     var isLoading by remember { mutableStateOf(false) }
     var isSearchMode by remember { mutableStateOf(false) }
     var isWebViewVisible by remember { mutableStateOf(false) }
+    var isLoadingCsNet by remember { mutableStateOf(false) }
+    var showWebView by remember { mutableStateOf(false) }
     var tabs by rememberSaveable {
         mutableStateOf(listOf(TabInfo(
             id = UUID.randomUUID().toString(),
@@ -78,58 +80,82 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
         ) {
             // Main content
             if (isWebViewVisible) {
-                AndroidView(
-                    factory = { context ->
-                        WebView(context).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                    isLoading = true
-                                }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (showWebView) {
+                        AndroidView(
+                            factory = { context ->
+                                WebView(context).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    webViewClient = object : WebViewClient() {
+                                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                            isLoading = true
+                                        }
 
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    isLoading = false
-                                    url?.let { currentUrl ->
-                                        tabs = tabs.map { tab ->
-                                            if (tab.id == activeTabId) {
-                                                tab.copy(
-                                                    url = currentUrl,
-                                                    title = view?.title ?: currentUrl
-                                                )
-                                            } else tab
+                                        override fun onPageFinished(view: WebView?, url: String?) {
+                                            isLoading = false
+                                            isLoadingCsNet = false  // Add this line to ensure CsNet loading stops
+
+                                            url?.let { currentUrl ->
+                                                tabs = tabs.map { tab ->
+                                                    if (tab.id == activeTabId) {
+                                                        tab.copy(
+                                                            url = currentUrl,
+                                                            title = view?.title ?: currentUrl
+                                                        )
+                                                    } else tab
+                                                }
+                                            }
                                         }
                                     }
-                                }
-                            }
-                            setOnTouchListener { _, event ->
-                                when (event.action) {
-                                    MotionEvent.ACTION_DOWN -> {
-                                        isWebViewTouched = true
-                                    }
-                                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                        isWebViewTouched = false
-                                    }
-                                }
-                                false
-                            }
 
-                            settings.apply {
-                                javaScriptEnabled = true
-                                domStorageEnabled = true
-                                setSupportZoom(true)
-                                builtInZoomControls = true
-                                displayZoomControls = false
+                                    setOnTouchListener { _, event ->
+                                        when (event.action) {
+                                            MotionEvent.ACTION_DOWN -> {
+                                                isWebViewTouched = true
+                                            }
+                                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                                isWebViewTouched = false
+                                            }
+                                        }
+                                        false
+                                    }
+
+                                    settings.apply {
+                                        javaScriptEnabled = true
+                                        domStorageEnabled = true
+                                        setSupportZoom(true)
+                                        builtInZoomControls = true
+                                        displayZoomControls = false
+                                    }
+                                    webView = this
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = systemBarsPadding.calculateBottomPadding())
+                        )
+                    }
+
+                    if (isLoadingCsNet) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator()
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Loading CsNet results...")
                             }
-                            webView = this
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = systemBarsPadding.calculateBottomPadding())
-                )
+                    }
+                }
+
             } else {
                 Box(
                     modifier = Modifier
@@ -219,48 +245,63 @@ fun BrowserScreen(onLoadUrl: (WebView?, String) -> Unit) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
                     onSearch = { query, isGoogleSearch ->
-                        val newTabId = UUID.randomUUID().toString()
-
                         if (isGoogleSearch) {
                             // Handle Google search
-                            val newTab = TabInfo(
-                                id = newTabId,
-                                title = query,
-                                url = "https://www.google.com/search?q=$query",
-                                isActive = true
-                            )
-                            tabs = tabs.map { it.copy(isActive = false) } + newTab
-                            activeTabId = newTabId
-
-                            isWebViewVisible = true
-                            isSearchMode = false
-
                             scope.launch {
+                                // Initialize first
+                                isWebViewVisible = true
+                                showWebView = true
+
+                                // Wait for WebView to be ready
                                 kotlinx.coroutines.delay(100)
+
+                                // Create new tab
+                                val newTabId = UUID.randomUUID().toString()
+                                val newTab = TabInfo(
+                                    id = newTabId,
+                                    title = query,
+                                    url = "https://www.google.com/search?q=$query",
+                                    isActive = true
+                                )
+                                tabs = tabs.map { it.copy(isActive = false) } + newTab
+                                activeTabId = newTabId
+
+                                // Load the URL - no loading screen for Google search
                                 onLoadUrl(webView, "https://www.google.com/search?q=$query")
+
+                                isSearchMode = false
                             }
                         } else {
                             // Handle CsNet search
                             scope.launch {
                                 val csNetUrl = "csnet:$query"
+
+                                // Initialize first
+                                isWebViewVisible = true
+                                showWebView = true
+
+                                // Wait for WebView to be ready
+                                kotlinx.coroutines.delay(100)
+
+                                // Create new tab
+                                val newTabId = UUID.randomUUID().toString()
+                                val newTab = TabInfo(
+                                    id = newTabId,
+                                    title = "CsNet: $query",
+                                    url = csNetUrl,
+                                    isActive = true
+                                )
+
+                                // Update tabs
+                                tabs = tabs.map { it.copy(isActive = false) } + newTab
+                                activeTabId = newTabId
+
+                                // Show loading indicator only for CsNet search
+                                isLoadingCsNet = true
+
+                                // Load the URL
                                 onLoadUrl(webView, csNetUrl)
 
-                                // Wait for the content to load
-                                kotlinx.coroutines.delay(500)
-
-                                webView?.evaluateJavascript("document.documentElement.outerHTML") { html ->
-                                    val newTab = TabInfo(
-                                        id = newTabId,
-                                        title = "CsNet: $query",
-                                        url = csNetUrl,
-                                        isActive = true,
-                                        csNetContent = html
-                                    )
-                                    tabs = tabs.map { it.copy(isActive = false) } + newTab
-                                    activeTabId = newTabId
-                                }
-
-                                isWebViewVisible = true
                                 isSearchMode = false
                             }
                         }

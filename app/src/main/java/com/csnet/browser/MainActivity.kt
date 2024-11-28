@@ -49,14 +49,21 @@ class MainActivity : ComponentActivity() {
             if (input.startsWith("csnet:") || input.startsWith("csnet/")) {
                 isCustomSearch = true
                 val query = input.substringAfter(":").substringAfter("/").trim()
+
+                // Perform the search
                 val searchResults = csNetSearch.performSearch(query)
+
+                // Load the results
                 webView?.loadDataWithBaseURL(
-                    input, // Use the csnet: URL as the base URL
+                    input,
                     searchResults,
                     "text/html",
                     "UTF-8",
                     null
                 )
+
+                // The WebViewClient in BrowserScreen will handle hiding the loading indicator
+                // when the page finishes loading
             } else {
                 isCustomSearch = false
                 val url = when {
@@ -67,5 +74,4 @@ class MainActivity : ComponentActivity() {
                 webView?.loadUrl(url)
             }
         }
-    }
-}
+    }}
