@@ -23,16 +23,18 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import android.view.MotionEvent
-import android.view.ViewConfiguration
 import java.util.UUID
-import com.csnet.browser.TabInfo
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.content.Context
+import androidx.core.content.getSystemService
 
 @Composable
 fun BrowserScreen(
-    onLoadUrl: (WebView?, String, ColorScheme) -> Unit  // Add ColorScheme parameter
-) {    // State variables remain unchanged
+    onLoadUrl: (WebView?, String, ColorScheme) -> Unit,
+    context: Context
+) {
     var url by rememberSaveable { mutableStateOf("") }
     val colorScheme = MaterialTheme.colorScheme
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -78,14 +80,13 @@ fun BrowserScreen(
                 .fillMaxSize()
                 .padding(top = systemBarsPadding.calculateTopPadding())
         ) {
-            // Main content with enhanced Material 3 styling
+// First layer: WebView or Logo
             if (isWebViewVisible) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (showWebView) {
                         AndroidView(
                             factory = { context ->
                                 WebView(context).apply {
-                                    // WebView configuration remains unchanged
                                     layoutParams = ViewGroup.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -136,7 +137,6 @@ fun BrowserScreen(
                         )
                     }
 
-                    // Enhanced CsNet loading screen with Material 3 design
                     if (isLoadingCsNet) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
@@ -158,7 +158,7 @@ fun BrowserScreen(
                                     )
                                     Spacer(modifier = Modifier.height(24.dp))
                                     Text(
-                                        text = "Loading CsNet results...",
+                                        text = "Loading CsNet AI",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -174,7 +174,6 @@ fun BrowserScreen(
                     }
                 }
             } else {
-                // Enhanced logo display with Material You colors
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -190,20 +189,16 @@ fun BrowserScreen(
                             modifier = Modifier.size(200.dp),
                             size = 400f
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Search or enter URL",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
 
-            // Enhanced bottom navigation with Material 3 styling
-            Box(
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
+                    // Bottom Navigation - directly inside the main Box
+                    Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                    ) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     tonalElevation = 6.dp,
@@ -214,12 +209,13 @@ fun BrowserScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
                                 onClick = { scope.launch { drawerState.open() } },
+                                modifier = Modifier.weight(1f),
                                 colors = IconButtonDefaults.iconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 )
@@ -231,14 +227,19 @@ fun BrowserScreen(
                                 )
                             }
 
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             Surface(
                                 modifier = Modifier
-                                    .weight(0.6f)
+                                    .weight(2.5f)
                                     .height(48.dp),
                                 shape = RoundedCornerShape(24.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant,
                                 tonalElevation = 2.dp,
-                                onClick = { isSearchMode = true }
+                                onClick = {
+                                    context.vibrateDevice()
+                                    isSearchMode = true
+                                }
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -256,8 +257,11 @@ fun BrowserScreen(
                                 }
                             }
 
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             IconButton(
                                 onClick = { isTabsOverviewVisible = true },
+                                modifier = Modifier.weight(1f),
                                 colors = IconButtonDefaults.iconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 )
@@ -274,7 +278,7 @@ fun BrowserScreen(
                 }
             }
 
-            // Enhanced loading indicator
+            // Loading indicator
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier
@@ -285,7 +289,7 @@ fun BrowserScreen(
                 )
             }
 
-            // Search screen and tabs overview remain functionally the same but inherit Material 3 styling
+            // Search screen
             if (isSearchMode) {
                 SearchScreen(
                     onDismiss = { isSearchMode = false },
@@ -305,7 +309,7 @@ fun BrowserScreen(
                                 )
                                 tabs = tabs.map { it.copy(isActive = false) } + newTab
                                 activeTabId = newTabId
-                                onLoadUrl(webView, "https://www.google.com/search?q=$query", colorScheme)  // For Google searches
+                                onLoadUrl(webView, "https://www.google.com/search?q=$query", colorScheme)
                                 isSearchMode = false
                             }
                         } else {
@@ -325,7 +329,7 @@ fun BrowserScreen(
                                 tabs = tabs.map { it.copy(isActive = false) } + newTab
                                 activeTabId = newTabId
                                 isLoadingCsNet = true
-                                onLoadUrl(webView, csNetUrl, colorScheme)  // For CsNet searches
+                                onLoadUrl(webView, csNetUrl, colorScheme)
                                 isSearchMode = false
                             }
                         }
@@ -333,6 +337,7 @@ fun BrowserScreen(
                 )
             }
 
+            // Tabs overview
             if (isTabsOverviewVisible) {
                 TabsOverviewScreen(
                     tabs = tabs,

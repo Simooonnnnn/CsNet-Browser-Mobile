@@ -73,7 +73,7 @@ fun SearchScreen(
                                 .focusRequester(focusRequester),
                             placeholder = {
                                 Text(
-                                    "Suchen oder URL eingeben",
+                                    "Search the web",
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             },
@@ -117,7 +117,7 @@ fun SearchScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         TabButton(
-                            text = "Google Suche",
+                            text = "Google Search",
                             isSelected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
                             modifier = Modifier
@@ -126,7 +126,7 @@ fun SearchScreen(
                         )
 
                         TabButton(
-                            text = "CsNet Kurzfassung",
+                            text = "CsNet Summary",
                             isSelected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
                             modifier = Modifier

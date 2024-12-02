@@ -39,7 +39,8 @@ class MainActivity : ComponentActivity() {
                     BrowserScreen(
                         onLoadUrl = { webView: WebView?, url: String, scheme: ColorScheme ->
                             loadUrl(webView, url, scheme)
-                        }
+                        },
+                        context = LocalContext.current  // Add this line
                     )
                 }
             }
