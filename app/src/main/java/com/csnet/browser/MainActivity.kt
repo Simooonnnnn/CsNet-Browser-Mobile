@@ -15,14 +15,23 @@ import kotlinx.coroutines.launch
 import com.csnet.browser.ui.theme.CsNetBrowserTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.ColorScheme
+import android.os.Build
 
 class MainActivity : ComponentActivity() {
     private lateinit var csNetSearch: CsNetSearch
     private var isCustomSearch = false
 
+    @get:android.annotation.SuppressLint("Override")
+    var overrideActivityTraceEnabled: Boolean
+        get() = false
+        set(value) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        csNetSearch = CsNetSearch(this) // Initialize with context
+        if (Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTraceEnabled = true
+        }
+        csNetSearch = CsNetSearch(this)
 
         setContent {
             val isDarkTheme = isSystemInDarkTheme()
@@ -40,7 +49,7 @@ class MainActivity : ComponentActivity() {
                         onLoadUrl = { webView: WebView?, url: String, scheme: ColorScheme ->
                             loadUrl(webView, url, scheme)
                         },
-                        context = LocalContext.current  // Add this line
+                        context = LocalContext.current
                     )
                 }
             }

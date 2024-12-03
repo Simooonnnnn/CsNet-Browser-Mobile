@@ -29,6 +29,18 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.content.Context
 import androidx.core.content.getSystemService
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import android.os.Build
+import android.window.OnBackInvokedDispatcher
+import android.animation.PropertyValuesHolder
+import android.animation.ObjectAnimator
+import android.animation.AnimatorListenerAdapter
+import android.animation.Animator
+import android.view.View
+import androidx.annotation.RequiresApi
+import android.content.Intent
+import android.window.OnBackInvokedCallback
 
 @Composable
 fun BrowserScreen(
@@ -60,6 +72,62 @@ fun BrowserScreen(
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val imeInsets = WindowInsets.ime.asPaddingValues()
     var isWebViewTouched by remember { mutableStateOf(false) }
+    val activity = context as? ComponentActivity
+    val backCallback = remember {
+        object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    isSearchMode -> {
+                        isSearchMode = false
+                    }
+                    isTabsOverviewVisible -> {
+                        isTabsOverviewVisible = false
+                    }
+                    drawerState.isOpen -> {
+                        scope.launch { drawerState.close() }
+                    }
+                    webView?.canGoBack() == true -> {
+                        webView?.goBack()
+                    }
+                    else -> {
+                        isEnabled = false
+                        context.startActivity(Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_HOME)
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    DisposableEffect(activity) {
+        activity?.onBackPressedDispatcher?.addCallback(backCallback)
+        onDispose {
+            backCallback.remove()
+        }
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        DisposableEffect(activity) {
+            val callback = OnBackInvokedCallback {
+                when {
+                    isSearchMode -> isSearchMode = false
+                    isTabsOverviewVisible -> isTabsOverviewVisible = false
+                    drawerState.isOpen -> scope.launch { drawerState.close() }
+                    webView?.canGoBack() == true -> webView?.goBack()
+                    else -> activity?.finish()
+                }
+            }
+
+            activity?.onBackInvokedDispatcher?.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                callback
+            )
+
+            onDispose {
+                activity?.onBackInvokedDispatcher?.unregisterOnBackInvokedCallback(callback)
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -383,4 +451,24 @@ fun BrowserScreen(
             }
         }
     }
+}
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private fun WebView.animateBackNavigation() {
+    val animator = ObjectAnimator.ofPropertyValuesHolder(
+        this,
+        PropertyValuesHolder.ofFloat(View.SCALE_X.name, 1.0f, 0.8f),
+        PropertyValuesHolder.ofFloat(View.ALPHA.name, 1.0f, 0.5f)
+    ).apply {
+        duration = 200L
+        addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                goBack()
+                this@animateBackNavigation.apply {
+                    scaleX = 1.0f
+                    alpha = 1.0f
+                }
+            }
+        })
+    }
+    animator.start()
 }

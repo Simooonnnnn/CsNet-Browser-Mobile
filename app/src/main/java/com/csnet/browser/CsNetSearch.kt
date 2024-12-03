@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import java.net.URI
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 class CsNetSearch(private val context: Context) {
     private fun colorToRgb(color: Int): String {
@@ -74,6 +77,7 @@ class CsNetSearch(private val context: Context) {
         try {
             val searchUrl = "https://duckduckgo.com/html/?q=${android.net.Uri.encode(query)}"
             val searchResults = Jsoup.connect(searchUrl)
+                .timeout(5000)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .get()
 
@@ -84,19 +88,18 @@ class CsNetSearch(private val context: Context) {
 
             val images = searchResults.select("div.result__body")
                 .flatMap { result ->
-                    val directImages = result.select("img").map { it.attr("src") }
-                    val linkUrl = result.select("a.result__url").firstOrNull()?.text()?.let { "https://$it" }
-                    val linkedPageImages = linkUrl?.let {
+                    val url = result.select("a.result__url").firstOrNull()?.text()?.let { "https://$it" }
+                    url?.let {
                         try {
-                            Jsoup.connect(it).get().select("img[src~=(?i)\\.(png|jpe?g)]")
-                                .map { img -> img.attr("abs:src") }
-                        } catch (e: Exception) {
-                            emptyList()
-                        }
+                            Jsoup.connect(it)
+                                .timeout(5000)
+                                .get()
+                                .select("img[src~=(?i)\\.(png|jpe?g)]")
+                                .map { img -> img.absUrl("src") }
+                        } catch (e: Exception) { null }
                     } ?: emptyList()
-                    directImages + linkedPageImages
                 }
-                .filter { it.startsWith("http") && it.matches(Regex(".+\\.(png|jpe?g)$", RegexOption.IGNORE_CASE)) }
+                .filter { it.isNotEmpty() && it.startsWith("http") }
                 .distinct()
                 .take(3)
                 .ifEmpty {
@@ -107,42 +110,47 @@ class CsNetSearch(private val context: Context) {
                     )
                 }
 
-            val allContent = mutableListOf<String>()
-            val sources = mutableListOf<String>()
+            coroutineScope {
+                val contentResults = links.map { link ->
+                    async {
+                        try {
+                            val doc = Jsoup.connect(link)
+                                .timeout(5000)
+                                .get()
+                            doc.select("script, style, nav, header, footer, iframe").remove()
 
-            for (link in links) {
-                try {
-                    val doc = Jsoup.connect(link).get()
-                    doc.select("script, style, nav, header, footer, iframe").remove()
+                            val paragraphs = doc.select("article p, main p, .content p")
+                                .map { it.text().trim() }
+                                .filter { it.length in 50..500 && isRelevantToQuery(it, query) }
+                                .take(2)
 
-                    val paragraphs = doc.select("article p, main p, .content p")
-                        .map { it.text().trim() }
-                        .filter { it.length in 50..500 && isRelevantToQuery(it, query) }
-                        .take(2)
-
-                    if (paragraphs.isNotEmpty()) {
-                        allContent.addAll(paragraphs)
-                        sources.add(URI(link).host)
+                            if (paragraphs.isNotEmpty()) {
+                                Pair(paragraphs, URI(link).host)
+                            } else null
+                        } catch (e: Exception) {
+                            null
+                        }
                     }
-                } catch (e: Exception) {
-                    continue
-                }
+                }.awaitAll().filterNotNull()
+
+                val allContent = contentResults.flatMap { it.first }
+                val sources = contentResults.map { it.second }
+
+                val unifiedKeywords = extractKeywords(allContent.joinToString(" "))
+                val unifiedBulletPoints = extractBulletPoints(allContent.joinToString(" "))
+
+                generateUnifiedResultsHtml(
+                    query,
+                    images,
+                    UnifiedAnalysis(
+                        sources = sources,
+                        content = allContent,
+                        keywords = unifiedKeywords,
+                        bulletPoints = unifiedBulletPoints
+                    ),
+                    colorScheme
+                )
             }
-
-            val unifiedKeywords = extractKeywords(allContent.joinToString(" "))
-            val unifiedBulletPoints = extractBulletPoints(allContent.joinToString(" "))
-
-            generateUnifiedResultsHtml(
-                query,
-                images,
-                UnifiedAnalysis(
-                    sources = sources,
-                    content = allContent,
-                    keywords = unifiedKeywords,
-                    bulletPoints = unifiedBulletPoints
-                ),
-                colorScheme
-            )
         } catch (e: Exception) {
             generateErrorHtml("Search failed: ${e.message}", colorScheme)
         }
