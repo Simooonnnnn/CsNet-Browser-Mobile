@@ -246,7 +246,7 @@ fun BrowserScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = systemBarsPadding.calculateBottomPadding() + 80.dp)
-                        .offset(x = 30.dp),
+                        .offset(x = 0.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -254,8 +254,8 @@ fun BrowserScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         CsNetLogo(
-                            modifier = Modifier.size(200.dp),
-                            size = 400f
+                            modifier = Modifier.size(130.dp),
+                            size = 350f
                         )
                     }
                 }
@@ -283,11 +283,10 @@ fun BrowserScreen(
                         ) {
                             IconButton(
                                 onClick = { scope.launch { drawerState.open() } },
-                                modifier = Modifier.weight(1f),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                modifier = Modifier.weight(0.5f),
+
                                 )
-                            ) {
+                             {
                                 Icon(
                                     Icons.Default.Menu,
                                     contentDescription = "Menu",
@@ -299,7 +298,7 @@ fun BrowserScreen(
 
                             Surface(
                                 modifier = Modifier
-                                    .weight(2.5f)
+                                    .weight(0.5f)
                                     .height(48.dp),
                                 shape = RoundedCornerShape(24.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -329,11 +328,9 @@ fun BrowserScreen(
 
                             IconButton(
                                 onClick = { isTabsOverviewVisible = true },
-                                modifier = Modifier.weight(1f),
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                modifier = Modifier.weight(0.5f),
                                 )
-                            ) {
+                            {
                                 Icon(
                                     Icons.Outlined.Layers,
                                     contentDescription = "Tabs",
